@@ -2,6 +2,9 @@
 """
 RISC Assembler - Converts RISC assembly code to binary machine code
 Based on the 32-bit RISC CPU instruction set
+
+Supports standard assembler directives:
+- .text: Indicates the start of code section
 """
 
 import re
@@ -130,6 +133,14 @@ class RiscAssembler:
         else:
             raise ValueError(f"Invalid memory operand: {mem_str}")
     
+    def is_directive(self, line):
+        """Check if the line is an assembler directive"""
+        directives = ['.text']
+        line_parts = line.split()
+        if line_parts and line_parts[0] in directives:
+            return True
+        return False
+        
     def first_pass(self, lines):
         """First pass to collect all labels and their addresses"""
         address = 0
@@ -137,6 +148,10 @@ class RiscAssembler:
             # Remove comments and strip whitespace
             line = re.sub(r'#.*$', '', line).strip()
             if not line:
+                continue
+                
+            # Skip assembler directives
+            if self.is_directive(line):
                 continue
                 
             # Check if line contains a label
@@ -405,6 +420,10 @@ class RiscAssembler:
             # Remove comments and strip whitespace
             line = re.sub(r'#.*$', '', line).strip()
             if not line:
+                continue
+                
+            # Skip assembler directives
+            if self.is_directive(line):
                 continue
                 
             instruction = self.assemble_instruction(line, address)
