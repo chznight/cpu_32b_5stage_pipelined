@@ -27,6 +27,7 @@ module cpu(
     reg ID_EX_RegWrite;
     reg [1:0] ID_EX_ALUSrc;
     reg [3:0] ID_EX_ALUOp;
+    reg [2:0] ID_EX_Funct3;
     reg ID_EX_MemRead;
     reg ID_EX_MemWrite;
     reg ID_EX_MemtoReg;
@@ -40,6 +41,7 @@ module cpu(
     reg [31:0] EX_MEM_ALUResult;
     reg [31:0] EX_MEM_RegR2;
     reg [4:0] EX_MEM_Rd;
+    reg [2:0] EX_MEM_Funct3;
     reg EX_MEM_RegWrite;
     reg EX_MEM_MemRead;
     reg EX_MEM_MemWrite;
@@ -101,9 +103,18 @@ module cpu(
     end
     
     assign PC_next = branch_taken ? EX_MEM_BranchTarget : PC + 4;
-    assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1)) | EX_MEM_Jal | EX_MEM_Jalr;
-    //assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1));
-
+    //assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1)) | EX_MEM_Jal | EX_MEM_Jalr;
+    // assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1));
+    assign branch_taken = ((EX_MEM_Branch) & 
+                            (((EX_MEM_Funct3 == 3'b000) & (EX_MEM_Zero == 1)) |
+                            ((EX_MEM_Funct3 == 3'b001) & (EX_MEM_Zero == 0))  |
+                            ((EX_MEM_Funct3 == 3'b100) & (EX_MEM_Zero == 0))  |
+                            ((EX_MEM_Funct3 == 3'b101) & (EX_MEM_Zero == 1))  |
+                            ((EX_MEM_Funct3 == 3'b110) & (EX_MEM_Zero == 0))  |
+                            ((EX_MEM_Funct3 == 3'b111) & (EX_MEM_Zero == 1))))|
+                            (EX_MEM_Jal) |
+                            (EX_MEM_Jalr);
+                            
     // IF/ID Pipeline Register
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -180,6 +191,7 @@ module cpu(
             ID_EX_Branch <= 1'b0;
             ID_EX_Jal <= 1'b0;
             ID_EX_Jalr <= 1'b0;
+            ID_EX_Funct3 <= 3'b0;
         end else if (!pipeline_stall) begin
             ID_EX_PC <= IF_ID_PC;
             ID_EX_Rs1 <= IF_ID_Instruction[19:15];
@@ -197,6 +209,7 @@ module cpu(
             ID_EX_Branch <= branch;
             ID_EX_Jal <= jal;
             ID_EX_Jalr <= jalr;
+            ID_EX_Funct3 <= IF_ID_Instruction[14:12];
         end
     end
     
@@ -261,6 +274,7 @@ module cpu(
             EX_MEM_Branch <= 1'b0;
             EX_MEM_Jal <= 1'b0;
             EX_MEM_Jalr <= 1'b0;
+            EX_MEM_Funct3 <= 3'b0;
         end else begin
             EX_MEM_BranchTarget <= branch_target;
             EX_MEM_Zero <= zero_flag;
@@ -274,6 +288,7 @@ module cpu(
             EX_MEM_Branch <= ID_EX_Branch;
             EX_MEM_Jal <= ID_EX_Jal;
             EX_MEM_Jalr <= ID_EX_Jalr;
+            EX_MEM_Funct3 <= ID_EX_Funct3;
         end
     end
     
