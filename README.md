@@ -1,6 +1,6 @@
 # 32-bit RISC CPU
 
-This project implements a 32-bit RISC CPU with 5-stage pipeline and hazard detection/handling. The CPU design follows a RISC architecture similar to RISC-V.
+This project implements a 32-bit RISC CPU with 5-stage pipeline and hazard detection/handling. The CPU design is based on RISC-V ISA.
 
 ## Architecture Overview
 
