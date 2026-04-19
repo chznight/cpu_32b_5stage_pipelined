@@ -34,6 +34,7 @@ module cpu(
     reg ID_EX_Branch;
     reg ID_EX_Jal;
     reg ID_EX_Jalr;
+    reg ID_EX_Auipc;
     
     // EX/MEM
     reg [31:0] EX_MEM_BranchTarget;
@@ -80,6 +81,7 @@ module cpu(
     wire [31:0] jump_target;
     wire jal;
     wire jalr;
+    wire auipc;
     
     // Hazard detection unit signals
     wire stall;
@@ -142,7 +144,8 @@ module cpu(
         .alu_src(alu_src),
         .branch(branch),
         .jal(jal),
-        .jalr(jalr)
+        .jalr(jalr),
+        .auipc(auipc)
     );
     
     register_file registers(
@@ -192,6 +195,7 @@ module cpu(
             ID_EX_Jal <= 1'b0;
             ID_EX_Jalr <= 1'b0;
             ID_EX_Funct3 <= 3'b0;
+            ID_EX_Auipc <= 1'b0;
         end else if (!pipeline_stall) begin
             ID_EX_PC <= IF_ID_PC;
             ID_EX_Rs1 <= IF_ID_Instruction[19:15];
@@ -209,6 +213,7 @@ module cpu(
             ID_EX_Branch <= branch;
             ID_EX_Jal <= jal;
             ID_EX_Jalr <= jalr;
+            ID_EX_Auipc <= auipc;
             ID_EX_Funct3 <= IF_ID_Instruction[14:12];
         end
     end
@@ -245,7 +250,7 @@ module cpu(
     end
     
     // ALU source MUX
-    assign alu_in1 = (ID_EX_Jal | ID_EX_Jalr) ? ID_EX_PC: alu_in1_fwding_mux;
+    assign alu_in1 = (ID_EX_Jal | ID_EX_Jalr | ID_EX_Auipc) ? ID_EX_PC: alu_in1_fwding_mux;
     assign alu_in2 = (ID_EX_Jal | ID_EX_Jalr) ? 32'd4 : (ID_EX_ALUSrc ? ID_EX_Imm : alu_in2_fwding_mux);
 
     alu alu_unit(
@@ -257,7 +262,7 @@ module cpu(
     );
     
     // Branch target calculation
-    assign branch_target = ID_EX_Jalr ? (ID_EX_PC + ID_EX_RegR1) : (ID_EX_PC + ID_EX_Imm) ;
+    assign branch_target = ID_EX_Jalr ? ((ID_EX_RegR1 + ID_EX_Imm) & ~32'h1) : (ID_EX_PC + ID_EX_Imm) ;
     
     // EX/MEM Pipeline Register
     always @(posedge clk or posedge rst) begin

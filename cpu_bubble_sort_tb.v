@@ -5,6 +5,8 @@ module cpu_bubble_sort_tb;
     integer i;
     integer sorted = 1;
     integer seed = 42; // Seed for random number generation
+    integer cycle_count;
+    reg sort_done_reported;
     // Memory interface
     wire [31:0] instr_addr;
     reg [31:0] instruction;
@@ -52,6 +54,25 @@ module cpu_bubble_sort_tb;
     always @(posedge clk) begin
         if (mem_write)
             data_mem[data_addr[20:2]] <= data_out;
+    end
+
+    // Count clock cycles after reset; print once when sort marks done (x20 = 1)
+    initial begin
+        cycle_count = 0;
+        sort_done_reported = 0;
+    end
+
+    always @(posedge clk) begin
+        if (rst) begin
+            cycle_count = 0;
+            sort_done_reported = 0;
+        end else begin
+            cycle_count = cycle_count + 1;
+            if (cpu_inst.registers.registers[20] == 32'd1 && !sort_done_reported) begin
+                sort_done_reported = 1;
+                $display("Sort finished after %0d clock cycles", cycle_count);
+            end
+        end
     end
 
     initial begin
@@ -171,6 +192,10 @@ module cpu_bubble_sort_tb;
         // Run simulation for bubble sort with 50 elements
         #1600000;
 
+        if (!sort_done_reported)
+            $display("Sort completion not observed before timeout (x20 = %0d)",
+                     cpu_inst.registers.registers[20]);
+        $display("Total clock cycles after reset deassert: %0d", cycle_count);
         $display("x20 = %0d (Expected: 1)", cpu_inst.registers.registers[20]);
         // Display the results
         $display("Bubble Sort Test Results:");

@@ -8,7 +8,8 @@ module control_unit(
     output reg alu_src,
     output reg branch,
     output reg jal,
-    output reg jalr
+    output reg jalr,
+    output reg auipc
 );
 
     // RISC Instruction format
@@ -55,6 +56,7 @@ module control_unit(
         branch = 1'b0;
         jal = 1'b0;
         jalr = 1'b0;
+        auipc = 1'b0;
 
         case(opcode)
             OP_R_TYPE: begin
@@ -157,6 +159,7 @@ module control_unit(
                 reg_write = 1'b1;
                 alu_src = 1'b1; // Use immediate
                 alu_op = ALU_ADD; // PC + Immediate
+                auipc = 1;
             end
             
             // JAL and JALR are simplified here
