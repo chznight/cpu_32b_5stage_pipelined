@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Compile the Verilog files
-iverilog -o fibonacci_tb cpu.v control_unit.v register_file.v immediate_gen.v alu.v hazard_detection.v forwarding_unit.v cpu_fibonacci_0_tb.v
+iverilog -o fibonacci_tb rtl/cpu.v rtl/control_unit.v rtl/register_file.v rtl/immediate_gen.v rtl/alu.v rtl/hazard_detection.v rtl/forwarding_unit.v tb/cpu_fibonacci_0_tb.v
 
 # Run the simulation
 vvp fibonacci_tb
