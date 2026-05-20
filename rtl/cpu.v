@@ -62,6 +62,8 @@ module cpu(
     // IF stage
     reg [31:0] PC;
     wire [31:0] PC_next;
+    reg [31:0] PC_in_flight;
+    reg PC_in_flight_valid;
     wire branch_taken;
     
     // ID stage
@@ -103,7 +105,20 @@ module cpu(
             PC <= PC_next;
         end
     end
-    
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            PC_in_flight <= 32'b0;
+            PC_in_flight_valid <= 1'b0;
+        end else if (flush) begin
+            PC_in_flight <= 32'b0;
+            PC_in_flight_valid <= 1'b0;
+        end else if (!pipeline_stall) begin
+            PC_in_flight <= PC;
+            PC_in_flight_valid <= 1'b1;
+        end
+    end
+
     assign PC_next = branch_taken ? EX_MEM_BranchTarget : PC + 4;
     //assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1)) | EX_MEM_Jal | EX_MEM_Jalr;
     // assign branch_taken = (EX_MEM_Branch & EX_MEM_Zero) | (EX_MEM_Branch & (EX_MEM_ALUResult == 32'b1));
@@ -123,11 +138,11 @@ module cpu(
             IF_ID_PC <= 32'b0;
             IF_ID_Instruction <= 32'b0;
         end else if (!pipeline_stall) begin
-            if (flush) begin
+            if (flush | !PC_in_flight_valid) begin
                 IF_ID_Instruction <= 32'b0; // NOP on flush
                 IF_ID_PC <= 32'b0;
             end else begin
-                IF_ID_PC <= PC;
+                IF_ID_PC <= PC_in_flight;
                 IF_ID_Instruction <= instruction;
             end
         end
