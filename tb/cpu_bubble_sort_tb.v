@@ -1,4 +1,6 @@
 module cpu_bubble_sort_tb;
+    parameter integer ARRAY_LEN = 200;
+
     // Clock and reset
     reg clk;
     reg rst;
@@ -6,7 +8,10 @@ module cpu_bubble_sort_tb;
     integer sorted = 1;
     integer seed = 42; // Seed for random number generation
     integer cycle_count;
+    integer finish_cycle;
     reg sort_done_reported;
+    localparam DISPLAY_EDGE_COUNT = (ARRAY_LEN < 25) ? ARRAY_LEN : 25;
+    localparam TIMEOUT_CYCLES = (ARRAY_LEN * ARRAY_LEN * 100) + 10000;
     // Memory interface
     wire [31:0] instr_addr;
     reg [31:0] instruction;
@@ -19,8 +24,8 @@ module cpu_bubble_sort_tb;
     // Instruction memory (ROM)
     reg [31:0] instr_mem [0:127];
     
-    // Data memory (RAM) - Sized to accommodate 128 elements
-    reg [31:0] data_mem [0:127];
+    // Data memory (RAM) - Sized to accommodate ARRAY_LEN elements plus length word
+    reg [31:0] data_mem [0:ARRAY_LEN];
     
     // Instantiate the CPU
     cpu cpu_inst(
@@ -59,17 +64,20 @@ module cpu_bubble_sort_tb;
     // Count clock cycles after reset; print once when sort marks done (x20 = 1)
     initial begin
         cycle_count = 0;
+        finish_cycle = -1;
         sort_done_reported = 0;
     end
 
     always @(posedge clk) begin
         if (rst) begin
             cycle_count = 0;
+            finish_cycle = -1;
             sort_done_reported = 0;
         end else begin
             cycle_count = cycle_count + 1;
             if (cpu_inst.registers.registers[20] == 32'd1 && !sort_done_reported) begin
                 sort_done_reported = 1;
+                finish_cycle = cycle_count;
                 $display("Sort finished after %0d clock cycles", cycle_count);
             end
         end
@@ -90,8 +98,8 @@ module cpu_bubble_sort_tb;
         // Program will sort an array of integers in memory
         
         // Program logic:
-        // - Memory address 0 contains the length of the array (100)
-        // - Memory addresses 1-100 contain the unsorted array
+        // - Memory address 0 contains the length of the array
+        // - Memory addresses 1-ARRAY_LEN contain the unsorted array
         // - The sorted array will be in the same locations after execution
         // - Register usage:
         //   x1: array base address (4, after the length word)
@@ -104,16 +112,16 @@ module cpu_bubble_sort_tb;
         //   x9: array base address (constant)
         
         // Load test array into memory
-        data_mem[0] = 32'd100;  // Array length - changed to 50
+        data_mem[0] = ARRAY_LEN;
         
-        // Generate 50 random elements
-        for (i = 1; i <= 100; i = i + 1) begin
+        // Generate random elements
+        for (i = 1; i <= ARRAY_LEN; i = i + 1) begin
             // Generate pseudo-random numbers between 1 and 1000
             data_mem[i] = ($urandom(seed) % 1000) + 1;
         end
         
-        $display("Unsorted array (100 elements):");
-        for (i = 0; i < 100; i = i + 1) begin
+        $display("Unsorted array (%0d elements):", ARRAY_LEN);
+        for (i = 0; i < ARRAY_LEN; i = i + 1) begin
             $display("data[%0d] = %0d", i, data_mem[i+1]);
         end
 
@@ -189,27 +197,32 @@ module cpu_bubble_sort_tb;
         // Apply reset
         #10 rst = 0;
         
-        // Run simulation for bubble sort with 50 elements
-        #1600000;
+        // Run simulation until the program marks completion or the timeout expires.
+        while (!sort_done_reported && cycle_count < TIMEOUT_CYCLES) begin
+            @(posedge clk);
+        end
 
         if (!sort_done_reported)
             $display("Sort completion not observed before timeout (x20 = %0d)",
                      cpu_inst.registers.registers[20]);
-        $display("Total clock cycles after reset deassert: %0d", cycle_count);
+        if (finish_cycle >= 0)
+            $display("Total clock cycles after reset deassert: %0d", finish_cycle);
+        else
+            $display("Total clock cycles after reset deassert: %0d", cycle_count);
         $display("x20 = %0d (Expected: 1)", cpu_inst.registers.registers[20]);
         // Display the results
         $display("Bubble Sort Test Results:");
         $display("Sorted array (first 25 and last 25 elements):");
         
         // Display first 25 elements
-        for (i = 0; i < 25; i = i + 1) begin
+        for (i = 0; i < DISPLAY_EDGE_COUNT; i = i + 1) begin
             $display("data[%0d] = %0d", i, data_mem[i+1]);
         end
         
         $display("...");
         
         // Display last 25 elements
-        for (i = 75; i < 100; i = i + 1) begin
+        for (i = ARRAY_LEN - DISPLAY_EDGE_COUNT; i < ARRAY_LEN; i = i + 1) begin
             $display("data[%0d] = %0d", i, data_mem[i+1]);
         end
         
@@ -217,12 +230,12 @@ module cpu_bubble_sort_tb;
         $display("\nVerification:");
         begin
             sorted = 1;
-            for (i = 1; i < 100; i = i + 1) begin
+            for (i = 1; i < ARRAY_LEN; i = i + 1) begin
                 if (data_mem[i] > data_mem[i+1]) begin
                     sorted = 0;
                     $display("FAIL: Array not sorted correctly at index %0d (%0d > %0d)", 
                              i-1, data_mem[i], data_mem[i+1]);
-                    i = 50; // Break the loop
+                    i = ARRAY_LEN; // Break the loop
                 end
             end
             
